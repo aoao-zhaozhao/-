@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepSeek 余额查询</title>
+<style>
+  :root {
+    --bg: #0f0f14;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --muted: #8888a0;
+    --accent: #4f6ef7;
+    --accent-glow: #4f6ef744;
+    --green: #22c55e;
+    --green-bg: #22c55e18;
+    --red: #ef4444;
+    --red-bg: #ef444418;
+    --radius: 14px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-image: radial-gradient(ellipse at 50% 0%, #4f6ef712 0%, transparent 60%);
+  }
+
+  .container { width: 100%; max-width: 420px; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #e0e0e8 0%, #a0a8d0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header p { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(12px);
+  }
+
+  /* Input */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .input-row { display: flex; gap: 8px; }
+  .input-row input {
+    flex: 1;
+    background: #0f0f16;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-row input:focus { border-color: var(--accent); }
+  .input-row input::placeholder { color: #555; }
+  .btn {
+    padding: 10px 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #1e1e2e;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: #2a2a3e; border-color: var(--accent); }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    width: 100%;
+    padding: 13px;
+    font-size: 0.95rem;
+  }
+  .btn.primary:hover { box-shadow: 0 0 20px var(--accent-glow); }
+  .btn.primary:disabled { opacity: 0.5; pointer-events: none; }
+
+  /* Result */
+  .result { display: none; }
+  .result.show { display: block; }
+
+  .balance-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .balance-card .currency {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .balance-card .amount {
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .balance-card .amount.available { color: var(--green); }
+  .balance-card .amount.unavailable { color: var(--red); }
+
+  .breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .breakdown-item {
+    background: #0f0f16;
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .breakdown-item .label { font-size: 0.72rem; color: var(--muted); margin-bottom: 2px; }
+  .breakdown-item .value { font-size: 1.1rem; font-weight: 700; }
+
+  /* Status badges */
+  .status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+  .status.ok { background: var(--green-bg); color: var(--green); }
+  .status.err { background: var(--red-bg); color: var(--red); }
+  .status .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status.ok .dot { background: var(--green); }
+  .status.err .dot { background: var(--red); }
+
+  /* Error */
+  .error-msg {
+    background: var(--red-bg);
+    border: 1px solid #ef444433;
+    color: var(--red);
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    margin-top: 12px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* QR */
+  .qr-section { text-align: center; margin-top: 8px; }
+  .qr-toggle {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 8px;
+  }
+  .qr-toggle:hover { text-decoration: underline; }
+  .qr-wrap {
+    display: none;
+    margin-top: 12px;
+    padding: 20px;
+    background: #fff;
+    border-radius: var(--radius);
+    display: inline-block;
+  }
+  .qr-wrap canvas { display: block; }
+  .qr-wrap .hint { color: #666; font-size: 0.75rem; margin-top: 8px; }
+
+  /* Saved indicator */
+  .saved-hint { font-size: 0.72rem; color: var(--green); margin-top: 4px; display: none; }
+  .saved-hint.show { display: block; }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid #ffffff44;
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🔮 DeepSeek 余额</h1>
+    <p>实时查询 API 账户余额</p>
+  </div>
+
+  <!-- API Key -->
+  <div class="card">
+    <div class="field">
+      <label>API Key</label>
+      <div class="input-row">
+        <input type="password" id="apikey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+               autocomplete="off" spellcheck="false">
+        <button class="btn" id="toggleKey" title="显示/隐藏">👁</button>
+      </div>
+      <div class="saved-hint" id="savedHint">✓ 已从本地加载</div>
+    </div>
+    <button class="btn primary" id="queryBtn" onclick="queryBalance()">
+      查询余额
+    </button>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="balance-card" id="balanceCard"></div>
+  </div>
+
+  <!-- QR Code -->
+  <div class="qr-section" id="qrSection" style="display:none;">
+    <button class="qr-toggle" onclick="toggleQR()">📱 显示二维码（手机扫码即查）</button>
+    <div class="qr-wrap" id="qrWrap" style="display:none;"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+// ── State ──
+const $ = id => document.getElementById(id);
+let qrBuilt = false;
+let currentPageURL = '';
+
+// ── Init ──
+(function init() {
+  // Detect page URL for QR code
+  currentPageURL = window.location.href;
+  if (currentPageURL.startsWith('file://')) {
+    // When opened locally, guess localhost server URL
+    currentPageURL = 'http://localhost:8080/balance-qr.html';
+  }
+
+  // Load saved key
+  const saved = localStorage.getItem('ds_api_key');
+  if (saved) {
+    $('apikey').value = saved;
+    $('savedHint').classList.add('show');
+  }
+
+  // Toggle key visibility
+  $('toggleKey').addEventListener('click', () => {
+    const inp = $('apikey');
+    const isPass = inp.type === 'password';
+    inp.type = isPass ? 'text' : 'password';
+    $('toggleKey').textContent = isPass ? '🙈' : '👁';
+  });
+
+  // Enter key to submit
+  $('apikey').addEventListener('keydown', e => {
+    if (e.key === 'Enter') queryBalance();
+  });
+})();
+
+// ── Query ──
+async function queryBalance() {
+  const key = $('apikey').value.trim();
+  if (!key) {
+    showError('请输入 API Key');
+    return;
+  }
+
+  // Save key
+  localStorage.setItem('ds_api_key', key);
+  $('savedHint').classList.add('show');
+
+  // UI loading state
+  const btn = $('queryBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>查询中...';
+  hideError();
+  $('result').classList.remove('show');
+
+  try {
+    // Try direct API call first
+    let data;
+    try {
+      data = await fetchDirect(key);
+    } catch (directErr) {
+      console.log('Direct call failed, trying CORS proxy...', directErr.message);
+      data = await fetchViaProxy(key);
+    }
+
+    renderResult(data);
+    $('qrSection').style.display = 'block';
+  } catch (err) {
+    showError(err.message || '查询失败，请检查 API Key 和网络');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '查询余额';
+  }
+}
+
+async function fetchDirect(key) {
+  const resp = await fetch('https://api.deepseek.com/user/balance', {
+    headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' }
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    throw new Error(`HTTP ${resp.status}${body ? ': ' + body.slice(0,200) : ''}`);
+  }
+  return resp.json();
+}
+
+async function fetchViaProxy(key) {
+  const target = encodeURIComponent('https://api.deepseek.com/user/balance');
+  const resp = await fetch(`https://corsproxy.io/?${target}`, {
+    headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' }
+  });
+  if (!resp.ok) {
+    throw new Error(`代理请求失败 HTTP ${resp.status}`);
+  }
+  return resp.json();
+}
+
+// ── Render ──
+function renderResult(data) {
+  const card = $('balanceCard');
+  const available = data.is_available;
+  const infos = data.balance_infos || [];
+
+  let html = '';
+
+  if (infos.length === 0) {
+    html += `<div class="status ${available?'ok':'err'}"><span class="dot"></span>${available?'可用':'不可用'}</div>`;
+    html += `<p style="margin-top:12px;color:var(--muted)">暂无余额详情</p>`;
+  }
+
+  infos.forEach(info => {
+    const cls = available ? 'available' : 'unavailable';
+    html += `<div class="currency">${info.currency === 'CNY' ? '人民币' : '美元'} · ${info.currency}</div>`;
+    html += `<div class="amount ${cls}">${formatMoney(info.total_balance, info.currency)}</div>`;
+    html += `<div class="status ${available?'ok':'err'}"><span class="dot"></span>${available?'账户可用':'账户不可用'}</div>`;
+
+    html += `<div class="breakdown">`;
+    html += `<div class="breakdown-item"><div class="label">💰 充值余额</div><div class="value">${formatMoney(info.topped_up_balance, info.currency)}</div></div>`;
+    html += `<div class="breakdown-item"><div class="label">🎁 赠金余额</div><div class="value">${formatMoney(info.granted_balance, info.currency)}</div></div>`;
+    html += `</div>`;
+  });
+
+  card.innerHTML = html;
+  $('result').classList.add('show');
+}
+
+function formatMoney(val, currency) {
+  const num = parseFloat(val);
+  if (isNaN(num)) return val;
+  const symbol = currency === 'CNY' ? '¥' : '$';
+  return symbol + num.toFixed(2);
+}
+
+function showError(msg) {
+  const el = $('errorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideError() {
+  $('errorMsg').classList.remove('show');
+}
+
+// ── QR Code ──
+function toggleQR() {
+  const wrap = $('qrWrap');
+  if (wrap.style.display === 'none' || !wrap.style.display) {
+    wrap.style.display = 'inline-block';
+    if (!qrBuilt) buildQR();
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function buildQR() {
+  const wrap = $('qrWrap');
+  wrap.innerHTML = '';
+
+  // Use the actual page URL
+  let url = window.location.href;
+  if (url.startsWith('file://')) {
+    url = prompt('请输入本页面的 HTTP 地址\n（例如 http://192.168.1.5:8080/balance-qr.html）\n\n用 python3 -m http.server 8080 启动本地服务器即可', url);
+    if (!url) { wrap.style.display = 'none'; return; }
+    currentPageURL = url;
+  }
+
+  const div = document.createElement('div');
+  wrap.appendChild(div);
+
+  new QRCode(div, {
+    text: currentPageURL,
+    width: 200,
+    height: 200,
+    colorDark: '#0f0f14',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  const hint = document.createElement('div');
+  hint.className = 'hint';
+  hint.textContent = '扫描二维码打开此页面';
+  wrap.appendChild(hint);
+
+  qrBuilt = true;
+}
+</script>
+</body>
+</html>
